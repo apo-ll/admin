@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "crypto": "^1.0.1",
     "hono": "^4.5.3",
     "next": "14.2.5",
     "react": "^18",
