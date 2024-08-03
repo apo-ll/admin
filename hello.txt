@@ -1,0 +1,31 @@
+// src/app/api/webhooks/callback/route.js
+import { NextResponse } from 'next/server';
+
+export async function POST(req) {
+  // Get the raw body
+  const body = await req.json();
+
+  // Verify the request (optional, depending on your setup)
+  const secret = process.env.CALCOM_WEBHOOK_SECRET;
+  const signature = req.headers.get('x-calcom-signature');
+  
+  if (signature !== secret) {
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
+
+  // Handle the webhook event
+  const event = body.event;
+  const userId = body.payload.userId;
+
+  switch (event) {
+    case 'booking_created':
+      // Process the booking created event
+      break;
+    case 'booking_canceled':
+      // Process the booking canceled event
+      break;
+    // Handle other event types as needed
+  }
+
+  return NextResponse.json({ status: 'success' });
+}
