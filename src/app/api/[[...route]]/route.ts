@@ -1,12 +1,35 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/vercel'
-import * as crypto from 'crypto';
 
 export const runtime = 'edge'
 
 const app = new Hono().basePath('/api')
 
-const WEBHOOK_SECRET_KEY = 'djfranqke'
+const WEBHOOK_SECRET_KEY = 'djfranqke';
+
+async function verifySignature(body: string, signature: string, secret: string) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signatureMatch = signature.match(/[\da-f]{2}/gi);
+  if (!signatureMatch) {
+    throw new Error('Invalid signature format');
+  }
+  const signatureBuffer = new Uint8Array(signatureMatch.map((h) => parseInt(h, 16)));
+
+  const data = encoder.encode(body);
+  const hashBuffer = await crypto.subtle.sign('HMAC', key, data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+  return hashHex === signature;
+}
 
 app.post('/bookings', async (c) => {
   try {
@@ -19,13 +42,10 @@ app.post('/bookings', async (c) => {
     // Read the request body
     const body = await c.req.text();
 
-    // Compute the HMAC using the secret key and the request body
-    const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET_KEY);
-    hmac.update(body, 'utf8');
-    const hash = hmac.digest('hex');
+    // Verify the HMAC signature using the Web Crypto API
+    const isValid = await verifySignature(body, signature, WEBHOOK_SECRET_KEY);
 
-    // Compare the computed HMAC with the signature
-    if (hash !== signature) {
+    if (!isValid) {
       return c.json({ message: 'Invalid signature' }, 401);
     }
 
@@ -43,4 +63,5 @@ app.post('/bookings', async (c) => {
   }
 });
 
-export const POST = handle(app)
+// Export the handler for Vercel
+export const POST = handle(app);
